@@ -1,21 +1,41 @@
 import streamlit as st
-import ollama
+from groq import Groq
 
 
-# Page configuration
+# -----------------------------
+# Page Configuration
+# -----------------------------
+
 st.set_page_config(
-    page_title="Local AI Chatbot",
+    page_title="AI Chat Application",
     page_icon="🤖",
     layout="centered"
 )
 
 
+# -----------------------------
 # Title
-st.title("🤖 Local AI Chatbot")
-st.write("Powered by Qwen3:4b and Ollama")
+# -----------------------------
+
+st.title("🤖 AI Chat Application")
+st.caption("Powered by an LLM API")
 
 
-# Custom instructions
+# -----------------------------
+# API Client
+# -----------------------------
+
+try:
+    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
+except Exception:
+    st.error("GROQ_API_KEY is not configured.")
+    st.stop()
+
+
+# -----------------------------
+# Custom Instructions
+# -----------------------------
+
 system_instruction = st.text_area(
     "Custom AI Instructions",
     value="You are a helpful AI assistant. Answer clearly and in simple English.",
@@ -23,7 +43,10 @@ system_instruction = st.text_area(
 )
 
 
-# Initialize chat history
+# -----------------------------
+# Initialize Chat History
+# -----------------------------
+
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
@@ -32,12 +55,14 @@ if "messages" not in st.session_state:
         }
     ]
 
-
-# Update system instruction
+# Keep the system instruction updated
 st.session_state.messages[0]["content"] = system_instruction
 
 
-# Display previous messages
+# -----------------------------
+# Display Conversation
+# -----------------------------
+
 for message in st.session_state.messages:
 
     if message["role"] == "system":
@@ -47,13 +72,15 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 
-# User input
+# -----------------------------
+# User Input
+# -----------------------------
+
 user_prompt = st.chat_input("Type your message here...")
 
 
 if user_prompt:
 
-    # Add user message
     st.session_state.messages.append(
         {
             "role": "user",
@@ -61,27 +88,26 @@ if user_prompt:
         }
     )
 
-    # Display user message
     with st.chat_message("user"):
         st.markdown(user_prompt)
 
-    # Generate AI response
     with st.chat_message("assistant"):
 
-        with st.spinner("Qwen3 is thinking..."):
+        with st.spinner("AI is thinking..."):
 
             try:
 
-                response = ollama.chat(
-                    model="qwen3:4b",
-                    messages=st.session_state.messages
+                response = client.chat.completions.create(
+                    model="openai/gpt-oss-20b",
+                    messages=st.session_state.messages,
+                    temperature=0.7,
+                    max_tokens=500
                 )
 
-                assistant_response = response["message"]["content"]
+                assistant_response = response.choices[0].message.content
 
                 st.markdown(assistant_response)
 
-                # Save AI response
                 st.session_state.messages.append(
                     {
                         "role": "assistant",
@@ -91,6 +117,6 @@ if user_prompt:
 
             except Exception as e:
 
-                st.error("Unable to connect to Ollama.")
+                st.error("Something went wrong while generating the response.")
 
-                st.code(str(e))
+                st.caption(f"Error details: {e}")
